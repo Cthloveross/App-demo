@@ -1,15 +1,23 @@
 from fastapi import FastAPI, Request, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import sqlite3
 import os
 from datetime import datetime
-from app.database import create_and_populate_tables
+from database import create_and_populate_tables
+from fastapi.templating import Jinja2Templates
 
 app = FastAPI()
 
 # Initialize database
 create_and_populate_tables()
+
+# Serve static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Set up templates
+templates = Jinja2Templates(directory="templates")
 
 # Sensor types
 SENSOR_TYPES = {"temperature", "humidity", "light"}
@@ -23,6 +31,14 @@ class SensorData(BaseModel):
 # Function to get database connection
 def get_db_connection():
     return sqlite3.connect("sensor_data.db")
+
+@app.get("/")
+def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/dashboard")
+def dashboard(request: Request):
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
 @app.get("/api/{sensor_type}")
 def get_sensor_data(sensor_type: str, order_by: str = Query(None, alias="order-by"), start_date: str = Query(None, alias="start-date"), end_date: str = Query(None, alias="end-date")):
