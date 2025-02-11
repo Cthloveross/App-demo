@@ -5,7 +5,7 @@ from pydantic import BaseModel
 import sqlite3
 import os
 from datetime import datetime
-from database import create_and_populate_tables
+from app.database import create_and_populate_tables
 from fastapi.templating import Jinja2Templates
 
 app = FastAPI()
