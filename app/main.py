@@ -19,7 +19,8 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory=os.path.abspath("app/static")), name="static")
 
 # Ensure templates directory exists
-templates = Jinja2Templates(directory=os.path.abspath("app"))
+# New (Correct)
+templates = Jinja2Templates(directory=os.path.abspath("app/templates"))
 
 # Sensor types
 SENSOR_TYPES = {"temperature", "humidity", "light"}
@@ -29,6 +30,13 @@ class SensorData(BaseModel):
     value: float
     unit: str
     timestamp: str = None
+
+@app.get("/dashboard")
+def dashboard(request: Request):
+    try:
+        return templates.TemplateResponse("dashboard.html", {"request": request})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": f"Template error: {str(e)}"})
 
 # Function to get MySQL database connection with retries
 def get_db_connection(retries=5, delay=5):
