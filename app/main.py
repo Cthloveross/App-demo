@@ -90,6 +90,27 @@ def get_sensor_data(sensor_type: str):
 
     return {"data": data}
 
+
+@app.get("/api/{sensor_type}/count")
+def get_sensor_count(sensor_type: str):
+    if sensor_type not in SENSOR_TYPES:
+        return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(f"SELECT COUNT(*) FROM {sensor_type}")
+        count = cursor.fetchone()[0]
+        return {"count": count}
+    except mysql.connector.Error as e:
+        return JSONResponse(status_code=500, content={"error": f"Database query error: {str(e)}"})
+    finally:
+        cursor.close()
+        conn.close()
+
+        
+
 if __name__ == "__main__":
     ensure_tables()  # Ensure tables exist before running
     uvicorn.run(app="app.main:app", host="0.0.0.0", port=6543, reload=True)
