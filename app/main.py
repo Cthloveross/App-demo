@@ -92,7 +92,7 @@ def get_sensor_count(sensor_type: str):
     count = cursor.fetchone()[0]
     conn.close()
 
-    return {"count": count}
+    return  count
 
 @app.post("/api/{sensor_type}")
 def insert_sensor_data(sensor_type: str, data: SensorData):
@@ -112,7 +112,7 @@ def insert_sensor_data(sensor_type: str, data: SensorData):
     new_id = cursor.lastrowid
     conn.close()
 
-    return {"id": new_id}
+    return new_id
 
 @app.get("/api/{sensor_type}/{id}")
 def get_sensor_data_by_id(sensor_type: str, id: int):
@@ -128,7 +128,7 @@ def get_sensor_data_by_id(sensor_type: str, id: int):
     
     if not data:
         return JSONResponse(status_code=404, content={"error": "Data not found"})
-    return {"data": data}
+    return data
 
 @app.put("/api/{sensor_type}/{id}")
 def update_sensor_data(sensor_type: str, id: int, data: SensorData):
@@ -165,6 +165,4 @@ def update_sensor_data(sensor_type: str, id: int, data: SensorData):
     return {"message": "Data updated successfully"}
 
 if __name__ == "__main__":
-    ensure_tables()
-    seed_database()
     uvicorn.run(app="app.main:app", host="0.0.0.0", port=6543, reload=True)
