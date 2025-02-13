@@ -29,7 +29,7 @@ def get_db_connection(retries=5, delay=5):
     raise RuntimeError("Cannot connect to MySQL after multiple attempts.")
 
 def ensure_tables():
-    """Create the required tables if they do not exist."""
+    """Ensure the required tables exist with the correct structure."""
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -39,15 +39,28 @@ def ensure_tables():
             CREATE TABLE IF NOT EXISTS {sensor} (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 value FLOAT NOT NULL,
-                unit VARCHAR(10) NOT NULL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                unit VARCHAR(10) NOT NULL DEFAULT 'C',
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
-    
+
+        # Ensure `unit` column exists
+        cursor.execute(f"SHOW COLUMNS FROM {sensor} LIKE 'unit'")
+        if not cursor.fetchone():
+            print(f"[WARNING] Missing 'unit' column in {sensor}. Adding it...")
+            cursor.execute(f"ALTER TABLE {sensor} ADD COLUMN unit VARCHAR(10) NOT NULL DEFAULT 'C';")
+
+        # Ensure `timestamp` is `DATETIME`
+        cursor.execute(f"SHOW COLUMNS FROM {sensor} WHERE Field = 'timestamp'")
+        result = cursor.fetchone()
+        if result and "timestamp" in result and "timestamp" in result[1]:
+            print(f"[INFO] Converting 'timestamp' column in {sensor} to DATETIME...")
+            cursor.execute(f"ALTER TABLE {sensor} MODIFY COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP;")
+
     conn.commit()
     cursor.close()
     conn.close()
-    print("[INFO] Tables ensured.")
+    print("[INFO] Table structure ensured.")
 
 def seed_database():
     """Load data from CSV files into the corresponding tables."""
@@ -66,21 +79,20 @@ def seed_database():
 
                 with open(file_path, newline='') as csvfile:
                     reader = csv.DictReader(csvfile)
-                    print(f"[DEBUG] Detected CSV columns: {reader.fieldnames}")
+                    columns = set(reader.fieldnames)
+                    print(f"[DEBUG] Detected CSV columns: {columns}")
 
-                    if set(reader.fieldnames) != {"value", "unit", "timestamp"} and set(reader.fieldnames) != {"timestamp", "value", "unit"}:
-                        print(f"[ERROR] CSV format mismatch in {file_path}. Expected columns: value, unit, timestamp OR timestamp, value, unit")
+                    if not {"value", "unit", "timestamp"}.issubset(columns):
+                        print(f"[ERROR] CSV format mismatch in {file_path}. Expected columns: value, unit, timestamp")
                         continue
 
                     data = []
                     for row in reader:
-                        if reader.fieldnames == ["timestamp", "value", "unit"]:
-                            data.append((float(row["value"]), row["unit"], row["timestamp"]))  # ✅ Correct order
-                        elif reader.fieldnames == ["value", "unit", "timestamp"]:
-                            data.append((float(row["value"]), row["unit"], row["timestamp"]))  # ✅ Already correct
-                        else:
-                            print(f"[ERROR] Unexpected column order: {reader.fieldnames}")
-                            continue  # Skip if format is incorrect
+                        try:
+                            data.append((float(row["value"]), row["unit"], row["timestamp"]))  # ✅ Convert `value` to float
+                        except ValueError:
+                            print(f"[WARNING] Skipping invalid row: {row}")
+                            continue  # Skip invalid rows
 
                     print(f"[DEBUG] Total rows read from {file_path}: {len(data)}")
 
@@ -95,4 +107,5 @@ def seed_database():
     cursor.close()
     conn.close()
     print("[INFO] Database seeding complete.")
+
 
