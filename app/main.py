@@ -125,42 +125,22 @@ def insert_sensor_data(sensor_type: str, data: SensorData):
 
 
 
-
-
-@app.get("/api/{sensor_type}")
-def get_sensor_data(
-    sensor_type: str,
-    order_by: str = Query(None, alias="order-by"),
-    start_date: str = Query(None, alias="start-date"),
-    end_date: str = Query(None, alias="end-date"),
-):
-    """Fetch all sensor data with optional filtering and ordering."""
+@app.get("/api/{sensor_type}/{id}")
+def get_sensor_data_by_id(sensor_type: str, id: int):
+    """Fetch sensor data by ID."""
     if sensor_type not in SENSOR_TYPES:
         return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
-
+    
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-
-    query = f"SELECT id, value, unit, timestamp FROM {sensor_type} WHERE 1=1"
-    params = []
-
-    if start_date:
-        query += " AND timestamp >= %s"
-        params.append(start_date)
-
-    if end_date:
-        query += " AND timestamp <= %s"
-        params.append(end_date)
-
-    if order_by in {"value", "timestamp"}:
-        query += f" ORDER BY {order_by} ASC"  # ✅ Ensure correct ordering
-
-    cursor.execute(query, params)
-    data = cursor.fetchall()
+    cursor.execute(f"SELECT * FROM {sensor_type} WHERE id = %s", (id,))
+    data = cursor.fetchone()
     conn.close()
-
-    return {"data": data}
-
+    
+    if not data:
+        return JSONResponse(status_code=404, content={"error": "Data not found"})
+    
+    return data  # ✅ Fix: Return raw JSON instead of wrapping it in {"data": ...}
 
 
 
