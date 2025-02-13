@@ -144,7 +144,6 @@ def get_sensor_data_by_id(sensor_type: str, id: int):
 
 
 
-
 @app.put("/api/{sensor_type}/{id}")
 def update_sensor_data(sensor_type: str, id: int, data: SensorData):
     """Update sensor data by ID."""
@@ -181,9 +180,7 @@ def update_sensor_data(sensor_type: str, id: int, data: SensorData):
     updated_data = cursor.fetchone()
     conn.close()
     
-    return {"updated_data": updated_data}  # ✅ Fix: Return updated row
-
-
+    return updated_data  # ✅ Fix: Return updated row
 
 
 
