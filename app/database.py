@@ -16,7 +16,7 @@ def get_db_connection(retries=5, delay=5):
     for i in range(retries):
         try:
             conn = mysql.connector.connect(
-                host=os.getenv("MYSQL_HOST", "tech-assignment-final-project-cth-db-1"),  # MySQL container name
+                host=os.getenv("MYSQL_HOST", "db"),  # MySQL container name
                 user=os.getenv("MYSQL_USER", "myuser"),
                 password=os.getenv("MYSQL_PASSWORD", "123456"),
                 database=os.getenv("MYSQL_DATABASE", "mydatabase")
@@ -27,7 +27,6 @@ def get_db_connection(retries=5, delay=5):
             print(f"[ERROR] Database connection failed ({e}). Retrying {i+1}/{retries} in {delay}s...")
             time.sleep(delay)
     raise RuntimeError("Cannot connect to MySQL after multiple attempts.")
-
 def ensure_tables():
     """Ensure the required tables exist with the correct structure."""
     conn = get_db_connection()
@@ -46,14 +45,14 @@ def ensure_tables():
 
         # Ensure `unit` column exists
         cursor.execute(f"SHOW COLUMNS FROM {sensor} LIKE 'unit'")
-        if not cursor.fetchone():
+        if not cursor.fetchone():  # ✅ Only add if missing
             print(f"[WARNING] Missing 'unit' column in {sensor}. Adding it...")
             cursor.execute(f"ALTER TABLE {sensor} ADD COLUMN unit VARCHAR(10) NOT NULL DEFAULT 'C';")
-
+        
         # Ensure `timestamp` is `DATETIME`
         cursor.execute(f"SHOW COLUMNS FROM {sensor} WHERE Field = 'timestamp'")
         result = cursor.fetchone()
-        if result and "timestamp" in result and "timestamp" in result[1]:
+        if result and "timestamp" in result[0]:  # ✅ Correct check
             print(f"[INFO] Converting 'timestamp' column in {sensor} to DATETIME...")
             cursor.execute(f"ALTER TABLE {sensor} MODIFY COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP;")
 
@@ -61,6 +60,7 @@ def ensure_tables():
     cursor.close()
     conn.close()
     print("[INFO] Table structure ensured.")
+
 
 def seed_database():
     """Load data from CSV files into the corresponding tables."""
