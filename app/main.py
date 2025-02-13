@@ -45,6 +45,8 @@ def read_root(request: Request):
     """Render index page."""
     return templates.TemplateResponse("index.html", {"request": request})
 
+
+
 @app.get("/api/{sensor_type}")
 def get_sensor_data(
     sensor_type: str,
@@ -78,6 +80,7 @@ def get_sensor_data(
     conn.close()
 
     return {"data": data}
+
 
 @app.get("/api/{sensor_type}/count")
 def get_sensor_count(sensor_type: str):
