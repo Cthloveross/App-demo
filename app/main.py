@@ -46,7 +46,6 @@ def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
-
 @app.get("/api/{sensor_type}")
 def get_sensor_data(
     sensor_type: str,
@@ -59,36 +58,33 @@ def get_sensor_data(
         return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(dictionary=True)  # Fetch results as a dictionary
 
     query = f"SELECT * FROM {sensor_type} WHERE 1=1"
     params = []
 
+    # Filtering by start and end date
     if start_date:
-        try:
-            start_date = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
-            query += " AND timestamp >= %s"
-            params.append(start_date)
-        except ValueError:
-            return JSONResponse(status_code=400, content={"error": "Invalid start-date format. Use YYYY-MM-DD HH:MM:SS"})
+        query += " AND timestamp >= %s"
+        params.append(start_date)
 
     if end_date:
-        try:
-            end_date = datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S")
-            query += " AND timestamp <= %s"
-            params.append(end_date)
-        except ValueError:
-            return JSONResponse(status_code=400, content={"error": "Invalid end-date format. Use YYYY-MM-DD HH:MM:SS"})
+        query += " AND timestamp <= %s"
+        params.append(end_date)
 
+    # Sorting by 'value' or 'timestamp'
     if order_by in {"value", "timestamp"}:
-        query += f" ORDER BY {order_by} ASC"
+        query += f" ORDER BY {order_by}"
 
-    cursor.execute(query, params)
-    data = cursor.fetchall()
-    conn.close()
+    try:
+        cursor.execute(query, params)
+        data = cursor.fetchall()
+        conn.close()
+        return JSONResponse(status_code=200, content={"data": data})
+    except Exception as e:
+        conn.close()
+        return JSONResponse(status_code=500, content={"error": f"Query execution failed: {str(e)}"})
 
-    # Ensure response is correctly formatted
-    return JSONResponse(status_code=200, content={"data": data, "count": len(data)})
 
 
 
