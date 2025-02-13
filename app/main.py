@@ -37,7 +37,7 @@ def get_sensor_count(sensor_type: str):
     cursor = db.cursor()
     cursor.execute(f"SELECT COUNT(*) FROM {sensor_type}")
     count = cursor.fetchone()[0]
-    return {"sensor_type": sensor_type, "count": count}
+    return count
 
 # 🟢 **Get All Sensor Data**
 @app.get("/api/{sensor_type}")
