@@ -165,4 +165,6 @@ def update_sensor_data(sensor_type: str, id: int, data: SensorData):
     return {"message": "Data updated successfully"}
 
 if __name__ == "__main__":
+    ensure_tables()
+    seed_database()
     uvicorn.run(app="app.main:app", host="0.0.0.0", port=6543, reload=True)
