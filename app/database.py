@@ -95,6 +95,3 @@ def seed_database():
     conn.close()
     print("[INFO] Database seeding complete.")
 
-if __name__ == "__main__":
-    ensure_tables()  # Ensure tables exist
-    seed_database()  # Populate tables with CSV data

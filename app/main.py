@@ -94,6 +94,11 @@ def get_sensor_count(sensor_type: str):
 
     return  count
 
+
+
+
+
+
 @app.post("/api/{sensor_type}")
 def insert_sensor_data(sensor_type: str, data: SensorData):
     """Insert new sensor data."""
@@ -112,7 +117,12 @@ def insert_sensor_data(sensor_type: str, data: SensorData):
     new_id = cursor.lastrowid
     conn.close()
 
-    return new_id
+    return {"id": new_id}  # ✅ Fix: Return JSON response
+
+
+
+
+
 
 @app.get("/api/{sensor_type}/{id}")
 def get_sensor_data_by_id(sensor_type: str, id: int):
@@ -128,7 +138,12 @@ def get_sensor_data_by_id(sensor_type: str, id: int):
     
     if not data:
         return JSONResponse(status_code=404, content={"error": "Data not found"})
-    return data
+    
+    return {"data": data}  # ✅ Fix: Wrap in JSON response
+
+
+
+
 
 @app.put("/api/{sensor_type}/{id}")
 def update_sensor_data(sensor_type: str, id: int, data: SensorData):
@@ -160,9 +175,17 @@ def update_sensor_data(sensor_type: str, id: int, data: SensorData):
     
     cursor.execute(query, params)
     conn.commit()
+
+    # Fetch the updated row
+    cursor.execute(f"SELECT * FROM {sensor_type} WHERE id = %s", (id,))
+    updated_data = cursor.fetchone()
     conn.close()
     
-    return {"message": "Data updated successfully"}
+    return {"updated_data": updated_data}  # ✅ Fix: Return updated row
+
+
+
+
 
 if __name__ == "__main__":
     ensure_tables()
