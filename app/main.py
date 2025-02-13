@@ -65,21 +65,32 @@ def get_sensor_data(
     params = []
 
     if start_date:
-        query += " AND timestamp >= %s"
-        params.append(start_date)
+        try:
+            start_date = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
+            query += " AND timestamp >= %s"
+            params.append(start_date)
+        except ValueError:
+            return JSONResponse(status_code=400, content={"error": "Invalid start-date format. Use YYYY-MM-DD HH:MM:SS"})
 
     if end_date:
-        query += " AND timestamp <= %s"
-        params.append(end_date)
+        try:
+            end_date = datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S")
+            query += " AND timestamp <= %s"
+            params.append(end_date)
+        except ValueError:
+            return JSONResponse(status_code=400, content={"error": "Invalid end-date format. Use YYYY-MM-DD HH:MM:SS"})
 
     if order_by in {"value", "timestamp"}:
-        query += f" ORDER BY {order_by}"
+        query += f" ORDER BY {order_by} ASC"
 
     cursor.execute(query, params)
     data = cursor.fetchall()
     conn.close()
 
-    return {"data": data}
+    # Ensure response is correctly formatted
+    return JSONResponse(status_code=200, content={"data": data, "count": len(data)})
+
+
 
 
 @app.get("/api/{sensor_type}/count")
@@ -101,40 +112,27 @@ def get_sensor_count(sensor_type: str):
 
 
 
-@app.get("/api/{sensor_type}")
-def get_sensor_data(
-    sensor_type: str,
-    order_by: str = Query(None, alias="order-by"),
-    start_date: str = Query(None, alias="start-date"),
-    end_date: str = Query(None, alias="end-date"),
-):
-    """Fetch all sensor data with optional filtering and ordering."""
+
+@app.post("/api/{sensor_type}")
+def insert_sensor_data(sensor_type: str, data: SensorData):
+    """Insert new sensor data."""
     if sensor_type not in SENSOR_TYPES:
         return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
-
+    
+    timestamp = data.timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    query = f"SELECT * FROM {sensor_type} WHERE 1=1"
-    params = []
-
-    if start_date:
-        query += " AND timestamp >= %s"
-        params.append(start_date)
-
-    if end_date:
-        query += " AND timestamp <= %s"
-        params.append(end_date)
-
-    if order_by in {"value", "timestamp"}:
-        query += f" ORDER BY {order_by} ASC"  # Ensure correct ordering
-
-    cursor.execute(query, params)
-    data = cursor.fetchall()
+    cursor = conn.cursor()
+    cursor.execute(
+        f"INSERT INTO {sensor_type} (value, unit, timestamp) VALUES (%s, %s, %s)", 
+        (data.value, data.unit, timestamp)
+    )
+    conn.commit()
+    new_id = cursor.lastrowid
     conn.close()
 
-    # Ensure response is properly formatted as JSON
-    return JSONResponse(status_code=200, content={"data": data})
+    return {"id": new_id}  # ✅ Fix: Return JSON response
+
 
 
 
