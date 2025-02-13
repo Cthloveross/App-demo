@@ -46,6 +46,24 @@ def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+
+@app.get("/api/{sensor_type}/count")
+def get_sensor_count(sensor_type: str):
+    """Get count of rows for the given sensor type."""
+    if sensor_type not in SENSOR_TYPES:
+        return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(f"SELECT COUNT(*) FROM {sensor_type}")
+    count = cursor.fetchone()[0]
+    conn.close()
+
+    return  count
+
+
+
 @app.get("/api/{sensor_type}")
 def get_sensor_data(
     sensor_type: str,
@@ -87,22 +105,6 @@ def get_sensor_data(
 
 
 
-
-
-@app.get("/api/{sensor_type}/count")
-def get_sensor_count(sensor_type: str):
-    """Get count of rows for the given sensor type."""
-    if sensor_type not in SENSOR_TYPES:
-        return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute(f"SELECT COUNT(*) FROM {sensor_type}")
-    count = cursor.fetchone()[0]
-    conn.close()
-
-    return  count
 
 
 
