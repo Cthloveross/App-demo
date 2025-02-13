@@ -74,12 +74,13 @@ def seed_database():
 
                     data = []
                     for row in reader:
-                        if "timestamp" in reader.fieldnames[0]:  # If "timestamp" is first column
-                            print(f"[DEBUG] Parsed row (timestamp first): {row}")
-                            data.append((float(row["value"]), row["unit"], row["timestamp"]))
+                        if reader.fieldnames == ["timestamp", "value", "unit"]:
+                            data.append((float(row["value"]), row["unit"], row["timestamp"]))  # ✅ Correct order
+                        elif reader.fieldnames == ["value", "unit", "timestamp"]:
+                            data.append((float(row["value"]), row["unit"], row["timestamp"]))  # ✅ Already correct
                         else:
-                            print(f"[DEBUG] Parsed row (value first): {row}")
-                            data.append((float(row["value"]), row["unit"], row["timestamp"]))
+                            print(f"[ERROR] Unexpected column order: {reader.fieldnames}")
+                            continue  # Skip if format is incorrect
 
                     print(f"[DEBUG] Total rows read from {file_path}: {len(data)}")
 

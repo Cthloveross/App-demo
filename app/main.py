@@ -139,7 +139,7 @@ def get_sensor_data_by_id(sensor_type: str, id: int):
     if not data:
         return JSONResponse(status_code=404, content={"error": "Data not found"})
     
-    return {"data": data}  # ✅ Fix: Wrap in JSON response
+    return data  # ✅ Fix: Return raw JSON instead of wrapping it in {"data": ...}
 
 
 
