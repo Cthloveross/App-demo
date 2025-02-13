@@ -5,13 +5,26 @@ from typing import Optional
 from datetime import datetime
 from app.database import seed_database  # Import only the function
 import uvicorn
+from fastapi import Request
+from fastapi.templating import Jinja2Templates
+import os
+from fastapi.staticfiles import StaticFiles
+import os
 
 # 🌱 Seed the database and establish global SQLite connection
 db: sqlite3.Connection = seed_database()
 db.row_factory = sqlite3.Row  # Allows access by column name
 
+
+# Ensure the correct path
+static_path = os.path.abspath("app/static")
+
+
 # Initialize FastAPI app
 app = FastAPI()
+
+# Mount the static directory
+app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 # Allowed sensor types
 SENSOR_TYPES = {"temperature", "humidity", "light"}
@@ -22,10 +35,22 @@ class SensorData(BaseModel):
     unit: str = "C"
     timestamp: Optional[str] = None
 
-# 🟢 **Root Endpoint**
+# Ensure templates directory exists
+templates = Jinja2Templates(directory=os.path.abspath("app/templates"))
+
+@app.get("/dashboard")
+def dashboard(request: Request):
+    """Render the dashboard template."""
+    try:
+        return templates.TemplateResponse("dashboard.html", {"request": request})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Template error: {str(e)}")
+    
+
 @app.get("/")
-def read_root():
-    return {"message": "Welcome to the Sensor Data API!"}
+def read_root(request: Request):
+    """Render index.html instead of returning JSON."""
+    return templates.TemplateResponse("index.html", {"request": request})
 
 # 🟢 **Get Count of Sensor Data**
 @app.get("/api/{sensor_type}/count")
