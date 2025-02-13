@@ -99,28 +99,39 @@ def get_sensor_count(sensor_type: str):
 
 
 
-@app.post("/api/{sensor_type}")
-def insert_sensor_data(sensor_type: str, data: SensorData):
-    """Insert new sensor data."""
+@app.get("/api/{sensor_type}")
+def get_sensor_data(
+    sensor_type: str,
+    order_by: str = Query(None, alias="order-by"),
+    start_date: str = Query(None, alias="start-date"),
+    end_date: str = Query(None, alias="end-date"),
+):
+    """Fetch all sensor data with optional filtering and ordering."""
     if sensor_type not in SENSOR_TYPES:
         return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
-    
-    timestamp = data.timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        f"INSERT INTO {sensor_type} (value, unit, timestamp) VALUES (%s, %s, %s)", 
-        (data.value, data.unit, timestamp)
-    )
-    conn.commit()
-    new_id = cursor.lastrowid
+    cursor = conn.cursor(dictionary=True)
+
+    query = f"SELECT id, value, unit, timestamp FROM {sensor_type} WHERE 1=1"
+    params = []
+
+    if start_date:
+        query += " AND timestamp >= %s"
+        params.append(start_date)
+
+    if end_date:
+        query += " AND timestamp <= %s"
+        params.append(end_date)
+
+    if order_by in {"value", "timestamp"}:
+        query += f" ORDER BY {order_by} ASC"  # ✅ Ensure correct ordering
+
+    cursor.execute(query, params)
+    data = cursor.fetchall()
     conn.close()
 
-    return {"id": new_id}  # ✅ Fix: Return JSON response
-
-
-
+    return data  # ✅ Fix: Return the list directly, not wrapped in {"data": ...}
 
 
 
@@ -182,6 +193,30 @@ def update_sensor_data(sensor_type: str, id: int, data: SensorData):
     
     return updated_data  # ✅ Fix: Return updated row
 
+
+@app.delete("/api/{sensor_type}/{id}")
+def delete_sensor_data(sensor_type: str, id: int):
+    """Delete sensor data by ID."""
+    if sensor_type not in SENSOR_TYPES:
+        return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Check if the record exists before attempting deletion
+    cursor.execute(f"SELECT COUNT(*) FROM {sensor_type} WHERE id = %s", (id,))
+    count = cursor.fetchone()[0]
+    
+    if count == 0:
+        conn.close()
+        return JSONResponse(status_code=404, content={"error": "Data not found"})
+
+    # Delete the record
+    cursor.execute(f"DELETE FROM {sensor_type} WHERE id = %s", (id,))
+    conn.commit()
+    conn.close()
+
+    return JSONResponse(status_code=200, content={"message": "Data deleted successfully"})
 
 
 if __name__ == "__main__":
