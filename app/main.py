@@ -10,6 +10,8 @@ from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 import uvicorn
 
+from app.database import ensure_tables, seed_database, get_db_connection
+
 # Load environment variables from .env
 load_dotenv()
 
@@ -19,7 +21,6 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory=os.path.abspath("app/static")), name="static")
 
 # Ensure templates directory exists
-# New (Correct)
 templates = Jinja2Templates(directory=os.path.abspath("app/templates"))
 
 # Sensor types
@@ -33,84 +34,137 @@ class SensorData(BaseModel):
 
 @app.get("/dashboard")
 def dashboard(request: Request):
+    """Render the dashboard template."""
     try:
         return templates.TemplateResponse("dashboard.html", {"request": request})
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": f"Template error: {str(e)}"})
 
-# Function to get MySQL database connection with retries
-def get_db_connection(retries=5, delay=5):
-    for i in range(retries):
-        try:
-            conn = mysql.connector.connect(
-                host=os.getenv("MYSQL_HOST", "db"),
-                user=os.getenv("MYSQL_USER", "root"),
-                password=os.getenv("MYSQL_PASSWORD", ""),
-                database=os.getenv("MYSQL_DATABASE", "mydatabase")
-            )
-            return conn
-        except mysql.connector.Error as e:
-            print(f"Database connection failed. Retrying {i+1}/{retries} in {delay}s...")
-            time.sleep(delay)
-    raise HTTPException(status_code=500, detail="Cannot connect to MySQL database after multiple attempts.")
-
-# Ensure tables exist
-def ensure_tables():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    for sensor in SENSOR_TYPES:
-        cursor.execute(f"""
-            CREATE TABLE IF NOT EXISTS {sensor} (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                value FLOAT NOT NULL,
-                unit VARCHAR(10) NOT NULL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-    conn.commit()
-    conn.close()
-
 @app.get("/")
 def read_root(request: Request):
+    """Render index page."""
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/api/{sensor_type}")
-def get_sensor_data(sensor_type: str):
+def get_sensor_data(
+    sensor_type: str,
+    order_by: str = Query(None, alias="order-by"),
+    start_date: str = Query(None, alias="start-date"),
+    end_date: str = Query(None, alias="end-date"),
+):
+    """Fetch all sensor data with optional filtering and ordering."""
+    if sensor_type not in SENSOR_TYPES:
+        return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    query = f"SELECT * FROM {sensor_type} WHERE 1=1"
+    params = []
+
+    if start_date:
+        query += " AND timestamp >= %s"
+        params.append(start_date)
+
+    if end_date:
+        query += " AND timestamp <= %s"
+        params.append(end_date)
+
+    if order_by in {"value", "timestamp"}:
+        query += f" ORDER BY {order_by}"
+
+    cursor.execute(query, params)
+    data = cursor.fetchall()
+    conn.close()
+
+    return {"data": data}
+
+@app.get("/api/{sensor_type}/count")
+def get_sensor_count(sensor_type: str):
+    """Get count of rows for the given sensor type."""
+    if sensor_type not in SENSOR_TYPES:
+        return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(f"SELECT COUNT(*) FROM {sensor_type}")
+    count = cursor.fetchone()[0]
+    conn.close()
+
+    return {"count": count}
+
+@app.post("/api/{sensor_type}")
+def insert_sensor_data(sensor_type: str, data: SensorData):
+    """Insert new sensor data."""
+    if sensor_type not in SENSOR_TYPES:
+        return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
+    
+    timestamp = data.timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        f"INSERT INTO {sensor_type} (value, unit, timestamp) VALUES (%s, %s, %s)", 
+        (data.value, data.unit, timestamp)
+    )
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
+
+    return {"id": new_id}
+
+@app.get("/api/{sensor_type}/{id}")
+def get_sensor_data_by_id(sensor_type: str, id: int):
+    """Fetch sensor data by ID."""
     if sensor_type not in SENSOR_TYPES:
         return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
     
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute(f"SELECT * FROM {sensor_type}")
-    data = cursor.fetchall()
+    cursor.execute(f"SELECT * FROM {sensor_type} WHERE id = %s", (id,))
+    data = cursor.fetchone()
     conn.close()
-
+    
     if not data:
-        return JSONResponse(status_code=200, content={"data": []})  # Return empty list instead of 500 error
-
+        return JSONResponse(status_code=404, content={"error": "Data not found"})
     return {"data": data}
 
-
-@app.get("/api/{sensor_type}/count")
-def get_sensor_count(sensor_type: str):
+@app.put("/api/{sensor_type}/{id}")
+def update_sensor_data(sensor_type: str, id: int, data: SensorData):
+    """Update sensor data by ID."""
     if sensor_type not in SENSOR_TYPES:
         return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
-
+    
     conn = get_db_connection()
     cursor = conn.cursor()
-
-    try:
-        cursor.execute(f"SELECT COUNT(*) FROM {sensor_type}")
-        count = cursor.fetchone()[0]
-        return {"count": count}
-    except mysql.connector.Error as e:
-        return JSONResponse(status_code=500, content={"error": f"Database query error: {str(e)}"})
-    finally:
-        cursor.close()
-        conn.close()
-
-        
+    
+    updates = []
+    params = []
+    
+    if data.value is not None:
+        updates.append("value = %s")
+        params.append(data.value)
+    if data.unit is not None:
+        updates.append("unit = %s")
+        params.append(data.unit)
+    if data.timestamp is not None:
+        updates.append("timestamp = %s")
+        params.append(data.timestamp)
+    
+    if not updates:
+        return {"message": "No updates provided"}
+    
+    query = f"UPDATE {sensor_type} SET {', '.join(updates)} WHERE id = %s"
+    params.append(id)
+    
+    cursor.execute(query, params)
+    conn.commit()
+    conn.close()
+    
+    return {"message": "Data updated successfully"}
 
 if __name__ == "__main__":
-    ensure_tables()  # Ensure tables exist before running
+    ensure_tables()
+    seed_database()
     uvicorn.run(app="app.main:app", host="0.0.0.0", port=6543, reload=True)
