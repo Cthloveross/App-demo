@@ -63,7 +63,6 @@ def get_sensor_count(sensor_type: str):
     return  count
 
 
-
 @app.get("/api/{sensor_type}")
 def get_sensor_data(
     sensor_type: str,
@@ -76,23 +75,42 @@ def get_sensor_data(
         return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)  # Fetch results as a dictionary
+    cursor = conn.cursor(dictionary=True)
+
+    # Fetch valid column names to verify order_by
+    cursor.execute(f"DESCRIBE {sensor_type}")
+    valid_columns = {row["Field"] for row in cursor.fetchall()}
+
+    if order_by and order_by not in valid_columns:
+        conn.close()
+        return JSONResponse(status_code=400, content={"error": f"Invalid order-by column: {order_by}"})
 
     query = f"SELECT * FROM {sensor_type} WHERE 1=1"
     params = []
 
     # Filtering by start and end date
     if start_date:
-        query += " AND timestamp >= %s"
-        params.append(start_date)
+        try:
+            start_date = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
+            query += " AND timestamp >= %s"
+            params.append(start_date)
+        except ValueError:
+            return JSONResponse(status_code=400, content={"error": "Invalid start-date format. Use YYYY-MM-DD HH:MM:SS"})
 
     if end_date:
-        query += " AND timestamp <= %s"
-        params.append(end_date)
+        try:
+            end_date = datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S")
+            query += " AND timestamp <= %s"
+            params.append(end_date)
+        except ValueError:
+            return JSONResponse(status_code=400, content={"error": "Invalid end-date format. Use YYYY-MM-DD HH:MM:SS"})
 
     # Sorting by 'value' or 'timestamp'
-    if order_by in {"value", "timestamp"}:
-        query += f" ORDER BY {order_by}"
+    if order_by:
+        query += f" ORDER BY `{order_by}` ASC"  # Using backticks to prevent SQL errors
+
+    # Debug: Print the query before executing
+    print(f"Executing SQL: {query} with params {params}")
 
     try:
         cursor.execute(query, params)
@@ -101,9 +119,8 @@ def get_sensor_data(
         return JSONResponse(status_code=200, content={"data": data})
     except Exception as e:
         conn.close()
+        print("SQL Execution Error:", str(e))  # Debugging
         return JSONResponse(status_code=500, content={"error": f"Query execution failed: {str(e)}"})
-
-
 
 
 
