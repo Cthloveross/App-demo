@@ -99,6 +99,31 @@ def get_sensor_count(sensor_type: str):
 
 
 
+@app.post("/api/{sensor_type}")
+def insert_sensor_data(sensor_type: str, data: SensorData):
+    """Insert new sensor data."""
+    if sensor_type not in SENSOR_TYPES:
+        return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
+    
+    timestamp = data.timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        f"INSERT INTO {sensor_type} (value, unit, timestamp) VALUES (%s, %s, %s)", 
+        (data.value, data.unit, timestamp)
+    )
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
+
+    return {"id": new_id}  # ✅ Fix: Return JSON response
+
+
+
+
+
+
 @app.get("/api/{sensor_type}")
 def get_sensor_data(
     sensor_type: str,
@@ -131,26 +156,7 @@ def get_sensor_data(
     data = cursor.fetchall()
     conn.close()
 
-    return data  # ✅ Fix: Return the list directly, not wrapped in {"data": ...}
-
-
-
-@app.get("/api/{sensor_type}/{id}")
-def get_sensor_data_by_id(sensor_type: str, id: int):
-    """Fetch sensor data by ID."""
-    if sensor_type not in SENSOR_TYPES:
-        return JSONResponse(status_code=404, content={"error": "Invalid sensor type"})
-    
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute(f"SELECT * FROM {sensor_type} WHERE id = %s", (id,))
-    data = cursor.fetchone()
-    conn.close()
-    
-    if not data:
-        return JSONResponse(status_code=404, content={"error": "Data not found"})
-    
-    return data  # ✅ Fix: Return raw JSON instead of wrapping it in {"data": ...}
+    return {"data": data}
 
 
 
@@ -191,7 +197,10 @@ def update_sensor_data(sensor_type: str, id: int, data: SensorData):
     updated_data = cursor.fetchone()
     conn.close()
     
-    return updated_data  # ✅ Fix: Return updated row
+    return {"updated_data": updated_data}  # ✅ Fix: Return updated row
+
+
+
 
 
 @app.delete("/api/{sensor_type}/{id}")
@@ -217,6 +226,8 @@ def delete_sensor_data(sensor_type: str, id: int):
     conn.close()
 
     return JSONResponse(status_code=200, content={"message": "Data deleted successfully"})
+
+
 
 
 if __name__ == "__main__":
