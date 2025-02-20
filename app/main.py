@@ -47,7 +47,7 @@ MQTT_BROKER = os.getenv("MQTT_BROKER", "broker.hivemq.com")
 # Track the last time a request was sent
 last_sent_time = 0
 
-def on_connect(client, userdata, flags, rc):
+def on_connect(client, userdata, flags, rc, properties=None):
     """Callback function when connected to MQTT broker"""
     if rc == 0:
         print(f"[MQTT] Connected successfully! Subscribing to: {BASE_TOPIC}/readings")
