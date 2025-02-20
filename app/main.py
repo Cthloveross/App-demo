@@ -255,9 +255,13 @@ def delete_sensor_data(sensor_type: str, id: int):
 # 🟢 **Run FastAPI Server**
 if __name__ == "__main__":
     # Initialize MQTT client
-    client = mqtt.Client()
+
+
+    # Initialize MQTT Client with latest API version
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
     client.on_message = on_message
+
 
     # Connect to MQTT broker
     print(f"[MQTT] Connecting to broker at {MQTT_BROKER}...")
