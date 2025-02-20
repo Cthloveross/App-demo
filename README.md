@@ -4,8 +4,11 @@ Template (starter code) for tech assignments 5 for ECE 140A, Winter 2025. We pla
 # Sensor Data Dashboard
 
 ## Dashboard Screenshot
-![Dashboard Screenshot](https://github.com/UCSD-ECE140/tech-assignment-final-project-cth/blob/main/temperature.png)
+# Sensor Data Dashboard
 
-![Dashboard Screenshot](https://github.com/UCSD-ECE140/tech-assignment-final-project-cth/blob/main/humidity.png)
+## Dashboard Screenshot
+![Temperature Chart](https://github.com/UCSD-ECE140/tech-assignment-final-project-cth/main/temperature.png)
 
-![Dashboard Screenshot](https://github.com/UCSD-ECE140/tech-assignment-final-project-cth/blob/main/light.png)
+![Humidity Chart](https://github.com/UCSD-ECE140/tech-assignment-final-project-cth/main/humidity.png)
+
+![Light Intensity Chart](https://github.com/UCSD-ECE140/tech-assignment-final-project-cth/raw/main/light.png)
