@@ -39,17 +39,21 @@ def on_connect(client, userdata, flags, rc, properties=None):
         client.subscribe(f"{BASE_TOPIC}/readings")
     else:
         print(f"[MQTT] Connection failed with code {rc}")
-
+        
 def on_message(client, userdata, msg):
-    """Handles incoming MQTT messages"""
+    """Handles incoming MQTT messages and sends data to the web server."""
     global last_sent_time
     try:
-        payload = json.loads(msg.payload.decode("utf-8"))
-        temperature = payload.get("temperature")
+        payload = msg.payload.decode("utf-8")
+        print(f"[DEBUG] Raw MQTT message received: {payload}")
 
-        # Ensure valid temperature value
+        data = json.loads(payload)
+
+        # 🟢 Extract the exact temperature and prevent precision errors
+        temperature = data.get("temperature")
+
         if temperature is None:
-            print("[MQTT] Received invalid message:", payload)
+            print("[ERROR] 'temperature' field missing in MQTT message")
             return
 
         current_time = time.time()
@@ -59,17 +63,25 @@ def on_message(client, userdata, msg):
 
         last_sent_time = current_time
 
-        # Send POST request to web server
-        data = {"value": temperature, "unit": "C", "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")}
-        response = requests.post(WEB_SERVER_URL, json=data)
+        # 🟢 Fix: Ensure we send the exact temperature received
+        formatted_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        post_data = {
+            "value": temperature,  # ✅ Ensure this matches the MQTT message exactly
+            "unit": "C",
+            "timestamp": formatted_timestamp
+        }
+        print(f"[DEBUG] Sending data to web server: {post_data}")
+
+        response = requests.post(WEB_SERVER_URL, json=post_data)
 
         if response.status_code == 200:
-            print("[MQTT] Data sent successfully to web server!")
+            print(f"[MQTT] Data sent successfully! Stored value: {temperature}")
         else:
-            print(f"[MQTT] Error sending data: {response.status_code} - {response.text}")
+            print(f"[ERROR] POST request failed: {response.status_code} - {response.text}")
 
     except Exception as e:
-        print(f"[MQTT] Error processing message: {e}")
+        print(f"[ERROR] Error processing MQTT message: {e}")
 
 
 
