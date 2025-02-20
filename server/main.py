@@ -85,3 +85,25 @@ def on_message(client, userdata, msg):
 
     except Exception as e:
         print(f"[ERROR] Error processing MQTT message: {e}")
+
+
+
+
+
+# 🟢 **Run FastAPI Server**
+if __name__ == "__main__":
+    # Initialize MQTT client
+
+
+    # Initialize MQTT Client with latest API version
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client.on_connect = on_connect
+    client.on_message = on_message
+
+
+    # Connect to MQTT broker
+    print(f"[MQTT] Connecting to broker at {MQTT_BROKER}...")
+    client.connect(MQTT_BROKER, 1883, 60)
+
+    # Start listening for messages
+    client.loop_forever()
