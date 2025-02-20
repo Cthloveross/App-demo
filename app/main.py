@@ -257,17 +257,17 @@ if __name__ == "__main__":
     # Initialize MQTT client
 
 
-    # Initialize MQTT Client with latest API version
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    client.on_connect = on_connect
-    client.on_message = on_message
+    # # Initialize MQTT Client with latest API version
+    # client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    # client.on_connect = on_connect
+    # client.on_message = on_message
 
 
-    # Connect to MQTT broker
-    print(f"[MQTT] Connecting to broker at {MQTT_BROKER}...")
-    client.connect(MQTT_BROKER, 1883, 60)
+    # # Connect to MQTT broker
+    # print(f"[MQTT] Connecting to broker at {MQTT_BROKER}...")
+    # client.connect(MQTT_BROKER, 1883, 60)
 
-    # Start listening for messages
-    client.loop_forever()
+    # # Start listening for messages
+    # client.loop_forever()
 
     uvicorn.run(app="app.main:app", host="0.0.0.0", port=6543, reload=True)
