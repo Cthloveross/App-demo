@@ -83,31 +83,31 @@ def get_sensor_count(sensor_type: str):
     return count
 
 
-# # 🟢 **Get Latest Temperature**
-# @app.get("/api/temperature")
-# def get_temperature_data(
-#     order_by: str = Query(None, alias="order-by"),
-#     start_date: str = Query(None, alias="start-date"),
-#     end_date: str = Query(None, alias="end-date"),
-# ):
-#     """Fetch all temperature data with optional filtering and ordering."""
-#     query = "SELECT * FROM temperature WHERE 1=1"
-#     params = []
+# 🟢 **Get Latest Temperature**
+@app.get("/api/temperature")
+def get_temperature_data(
+    order_by: str = Query(None, alias="order-by"),
+    start_date: str = Query(None, alias="start-date"),
+    end_date: str = Query(None, alias="end-date"),
+):
+    """Fetch all temperature data with optional filtering and ordering."""
+    query = "SELECT * FROM temperature WHERE 1=1"
+    params = []
 
-#     if start_date:
-#         query += " AND timestamp >= ?"
-#         params.append(start_date)
-#     if end_date:
-#         query += " AND timestamp <= ?"
-#         params.append(end_date)
-#     if order_by in {"value", "timestamp"}:
-#         query += f" ORDER BY {order_by} ASC"
+    if start_date:
+        query += " AND timestamp >= ?"
+        params.append(start_date)
+    if end_date:
+        query += " AND timestamp <= ?"
+        params.append(end_date)
+    if order_by in {"value", "timestamp"}:
+        query += f" ORDER BY {order_by} ASC"
 
-#     cursor = db.cursor()
-#     cursor.execute(query, params)
-#     data = cursor.fetchall()
+    cursor = db.cursor()
+    cursor.execute(query, params)
+    data = cursor.fetchall()
     
-#     return [dict(row) for row in data]  # ✅ Return list of dictionaries
+    return [dict(row) for row in data]  # ✅ Return list of dictionaries
 
 
 
