@@ -40,6 +40,9 @@ def on_connect(client, userdata, flags, rc, properties=None):
     else:
         print(f"[MQTT] Connection failed with code {rc}")
 
+
+
+
 def on_message(client, userdata, msg):
     """Handles incoming MQTT messages and sends data to the web server."""
     global last_sent_time
@@ -49,7 +52,7 @@ def on_message(client, userdata, msg):
 
         data = json.loads(payload)
 
-        # 🟢 Extract the exact temperature and prevent precision errors
+        # Extract temperature
         temperature = data.get("temperature")
 
         if temperature is None:
@@ -63,17 +66,17 @@ def on_message(client, userdata, msg):
 
         last_sent_time = current_time
 
-        # 🟢 Fix: Ensure we send the exact temperature received
+        # Format timestamp
         formatted_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         post_data = {
-            "value": temperature,  # ✅ Ensure this matches the MQTT message exactly
+            "value": temperature,  # ✅ Send the exact received value
             "unit": "C",
             "timestamp": formatted_timestamp
         }
         print(f"[DEBUG] Sending data to web server: {post_data}")
 
-        response = requests.post(WEB_SERVER_URL, json=post_data)
+        response = requests.post(WEB_SERVER_URL, json=post_data, timeout=5)
 
         if response.status_code == 200:
             print(f"[MQTT] Data sent successfully! Stored value: {temperature}")
@@ -82,26 +85,3 @@ def on_message(client, userdata, msg):
 
     except Exception as e:
         print(f"[ERROR] Error processing MQTT message: {e}")
-
-
-
-
-
-
-# 🟢 **Run FastAPI Server**
-if __name__ == "__main__":
-    # Initialize MQTT client
-
-
-    # Initialize MQTT Client with latest API version
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    client.on_connect = on_connect
-    client.on_message = on_message
-
-
-    # Connect to MQTT broker
-    print(f"[MQTT] Connecting to broker at {MQTT_BROKER}...")
-    client.connect(MQTT_BROKER, 1883, 60)
-
-    # Start listening for messages
-    client.loop_forever()

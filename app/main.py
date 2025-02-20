@@ -58,6 +58,31 @@ def dashboard(request: Request):
         raise HTTPException(status_code=500, detail=f"Template error: {str(e)}")
     
 
+
+
+
+
+@app.get("/")
+def read_root(request: Request):
+    """Render index.html instead of returning JSON."""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+
+
+# 🟢 **Get Count of Sensor Data**
+@app.get("/api/{sensor_type}/count")
+def get_sensor_count(sensor_type: str):
+    """Get the count of rows for a given sensor type."""
+    if sensor_type not in SENSOR_TYPES:
+        raise HTTPException(status_code=404, detail="Invalid sensor type")
+
+    cursor = db.cursor()
+    cursor.execute(f"SELECT COUNT(*) FROM {sensor_type}")
+    count = cursor.fetchone()[0]
+    return count
+
+
 # 🟢 **Get Latest Temperature**
 @app.get("/api/temperature")
 def get_temperature_data(
@@ -83,31 +108,6 @@ def get_temperature_data(
     data = cursor.fetchall()
     
     return [dict(row) for row in data]  # ✅ Return list of dictionaries
-
-
-
-
-
-@app.get("/")
-def read_root(request: Request):
-    """Render index.html instead of returning JSON."""
-    return templates.TemplateResponse("index.html", {"request": request})
-
-
-
-
-# 🟢 **Get Count of Sensor Data**
-@app.get("/api/{sensor_type}/count")
-def get_sensor_count(sensor_type: str):
-    """Get the count of rows for a given sensor type."""
-    if sensor_type not in SENSOR_TYPES:
-        raise HTTPException(status_code=404, detail="Invalid sensor type")
-
-    cursor = db.cursor()
-    cursor.execute(f"SELECT COUNT(*) FROM {sensor_type}")
-    count = cursor.fetchone()[0]
-    return count
-
 
 
 
