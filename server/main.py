@@ -39,7 +39,7 @@ def on_connect(client, userdata, flags, rc, properties=None):
         client.subscribe(f"{BASE_TOPIC}/readings")
     else:
         print(f"[MQTT] Connection failed with code {rc}")
-        
+
 def on_message(client, userdata, msg):
     """Handles incoming MQTT messages and sends data to the web server."""
     global last_sent_time
