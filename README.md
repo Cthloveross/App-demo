@@ -12,3 +12,9 @@ Template (starter code) for tech assignments 5 for ECE 140A, Winter 2025. We pla
 ![Humidity Chart](https://github.com/UCSD-ECE140/tech-assignment-final-project-cth/main/humidity.png)
 
 ![Light Intensity Chart](https://github.com/UCSD-ECE140/tech-assignment-final-project-cth/raw/main/light.png)
+
+
+
+## 📹 Video Demonstration
+
+[Click here to watch the demo video](https://drive.google.com/file/d/1eV1fp1m4FYkOAf9y9WW1O4XZvNgKtNU5/view?usp=sharing)
