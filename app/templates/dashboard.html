@@ -2,17 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
-    <h1>Sensor Data Dashboard</h1>
-
-    <canvas id="temperatureChart" width="1000" height="800"></canvas>
-    <canvas id="humidityChart" width="1000" height="800"></canvas>
-    <canvas id="lightChart" width="1000" height="800"></canvas>
-    
-    <script src="/static/js/dashboard.js"></script>
+    <header>
+        <h1>Dashboard</h1>
+        <nav>
+            <a href="/wardrobe">Wardrobe</a>
+            <a href="/profile">Profile</a>
+        </nav>
+    </header>
+    <main>
+        <h2>Sensor Data</h2>
+        <div id="sensor-data"></div>
+        <button onclick="getRecommendation()">What should I wear today?</button>
+        <p id="recommendation"></p>
+    </main>
+    <script src="/static/js/script.js"></script>
 </body>
 </html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Profile - My Devices</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <header><h1>My Registered Devices</h1></header>
+    <main>
+        <h2>Device List</h2>
+
+        {% if devices %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Device Name</th>
+                        <th>Device ID</th>
+                        <th>Created At</th>
+                        <th>Actions</th> <!-- New Column for Delete Button -->
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in devices %}
+                    <tr>
+                        <td>{{ device.device_name }}</td>
+                        <td>{{ device.device_id }}</td>
+                        <td>{{ device.created_at }}</td>
+                        <td>
+                            <button onclick="deleteDevice('{{ device.device_id }}')">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No devices registered yet.</p>
+        {% endif %}
+
+        <a href="/register_device"><button>Register New Device</button></a>
+        <a href="/dashboard"><button>Back to Dashboard</button></a>
+    </main>
+
+    <script>
+        function deleteDevice(deviceId) {
+            if (!confirm("Are you sure you want to delete this device?")) return;
+            
+            fetch(`/delete_device/${deviceId}`, { 
+                method: "DELETE", 
+                credentials: "same-origin"  // Ensures cookies (sessionId) are sent
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert("Device deleted successfully!");
+                    location.reload(); // Reload the page to update the device list
+                } else {
+                    alert("Failed to delete device.");
+                }
+            })
+            .catch(error => {
+                console.error("Error deleting device:", error);
+                alert("Error deleting device.");
+            });
+        }
+    </script>
+
+</body>
+</html>
