@@ -204,6 +204,11 @@ def get_ai_recommendation(prompt: str = Query("What should I eat tonight?")):
 def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
+@app.get("/logout")
+def logout_page(response: Response):
+    response.delete_cookie("sessionId")
+    return RedirectResponse(url="/login", status_code=302)
+
 @app.get("/signup")
 def signup_page(request: Request):
     return templates.TemplateResponse("signup.html", {"request": request})

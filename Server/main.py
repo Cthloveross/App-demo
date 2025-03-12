@@ -104,4 +104,5 @@ if __name__ == "__main__":
     print(f"[MQTT] Connecting to broker at {MQTT_BROKER}...")
     client.connect(MQTT_BROKER, 1883, 60)
 
-    # Start list
+    # Start listening for messages
+    client.loop_forever()
