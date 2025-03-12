@@ -523,4 +523,70 @@ def add_clothes(
         conn.commit()
     except Exception as e:
         print(f"DEBUG: Clothes registration error: {e}")
-        rais
+        raise HTTPException(status_code=400, detail=f"Clothes registration failed: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+    print("DEBUG: Clothes registered successfully")
+    return RedirectResponse(url="/wardrobe", status_code=303)
+
+
+# ------------------- Sensor Data Endpoints (SQLite) -------------------
+@app.get("/api/{sensor_type}/count")
+def get_sensor_count(sensor_type: str):
+    """Get the count of rows for a given sensor type."""
+    if sensor_type not in SENSOR_TYPES:
+        raise HTTPException(status_code=404, detail="Invalid sensor type")
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT COUNT(*) FROM sensor_data WHERE sensor_type = ?", (sensor_type,))
+    count = cursor.fetchone()[0]
+    return {"count": count}
+
+
+
+
+@app.get("/api/{sensor_type}")
+def get_sensor_data(sensor_type: str):
+    """Fetch all sensor data"""
+    if sensor_type not in SENSOR_TYPES:
+        raise HTTPException(status_code=404, detail="Invalid sensor type")
+
+    conn = get_db()  # ✅ Get fresh connection
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("SELECT * FROM sensor_data WHERE sensor_type = ?", (sensor_type,))
+        data = cursor.fetchall()
+        return [dict(row) for row in data]  # ✅ Ensures dictionary response
+    except Exception as e:
+        print(f"Database error: {e}")  # ✅ Debugging step
+        raise HTTPException(status_code=500, detail="Database error")
+    finally:
+        conn.close()  # ✅ Always close the connection
+
+
+
+
+@app.post("/api/{sensor_type}")
+def insert_sensor_data(sensor_type: str, data: SensorData):
+    """Insert new sensor data."""
+    if sensor_type not in SENSOR_TYPES:
+        raise HTTPException(status_code=404, detail="Invalid sensor type")
+
+    timestamp = data.timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO sensor_data (sensor_type, value, unit, timestamp) VALUES (?, ?, ?, ?)",
+        (sensor_type, data.value, data.unit, timestamp)
+    )
+    conn.commit()
+    return {"message": "Data inserted successfully"}
+
+# ------------------- Run FastAPI Server -------------------
+if __name__ == "__main__":
+    uvicorn.run("app.main:app", host="0.0.0.0", port=6543, reload=True)
