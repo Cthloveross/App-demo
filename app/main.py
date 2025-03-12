@@ -5,9 +5,10 @@ import secrets
 import uvicorn
 import paho.mqtt.client as mqtt
 from datetime import datetime
+import sqlite3
 from dotenv import load_dotenv
 from typing import Optional, Generator
-
+import requests
 from fastapi import (
     FastAPI, HTTPException, Query, Depends, Request, Form, Response, Cookie
 )
@@ -22,6 +23,16 @@ from app.database import (
     get_session, delete_session, register_device, verify_password, ensure_mysql_tables,
     ensure_sqlite_tables, get_user_by_email
 )
+
+# from fastapi.middleware.cors import CORSMiddleware
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],  # Allow all origins (you can restrict this)
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
 # Load environment variables
 load_dotenv()
@@ -107,28 +118,6 @@ def dashboard(request: Request, sessionId: Optional[str] = Cookie(None)):
 
 
 
-@app.get("/wardrobe")
-def wardrobe_page(request: Request, sessionId: Optional[str] = Cookie(None)):
-    """Displays the user's wardrobe page."""
-    print(f"DEBUG: sessionId from Cookie (Wardrobe): {sessionId}")  # ✅ Debugging
-
-    if not sessionId:
-        print("DEBUG: No sessionId found, redirecting to /login")  
-        return RedirectResponse(url="/login", status_code=303)
-
-    # Check session in DB
-    session = get_session(sessionId)
-    print(f"DEBUG: Session from DB (Wardrobe): {session}")  
-
-    if not session:
-        print("DEBUG: No valid session found, redirecting to /login")
-        return RedirectResponse(url="/login", status_code=303)
-
-    return templates.TemplateResponse("wardrobe.html", {"request": request})
-
-
-
-
 @app.get("/profile")
 def profile_page(request: Request, sessionId: Optional[str] = Cookie(None)):
     """Displays the profile page with user-specific devices."""
@@ -160,7 +149,55 @@ def profile_page(request: Request, sessionId: Optional[str] = Cookie(None)):
     return templates.TemplateResponse("profile.html", {"request": request, "devices": devices})
 
 
+API_URL = "https://ece140-wi25-api.frosty-sky-f43d.workers.dev/api/v1/ai/complete"
+HEADERS = {
+    "accept": "application/json",
+    "email": "tic001@ucsd.edu",  # Replace with your email
+    "pid": "A16875083",          # Replace with your PID
+    "Content-Type": "application/json"
+}
 
+DATABASE_PATH = "sensor_data.db"
+
+def get_past_temperature_data():
+    """Fetches past temperature data from the SQLite database."""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        # Get the last 5 temperature records
+        cursor.execute("SELECT value, timestamp FROM sensor_data WHERE sensor_type = 'temperature' ORDER BY timestamp DESC LIMIT 5")
+        rows = cursor.fetchall()
+        conn.close()
+
+        # Format the temperature history as text
+        history = "\n".join([f"{timestamp}: {value}°C" for value, timestamp in rows])
+        return history if history else "No temperature data available."
+
+    except Exception as e:
+        return f"Error retrieving past temperature data: {str(e)}"
+
+@app.get("/api/recommendation")
+def get_ai_recommendation(prompt: str = Query("What should I eat tonight?")):
+    """Fetches temperature history and sends it along with the user's prompt to the AI API."""
+    try:
+        temperature_history = get_past_temperature_data()  # Get past temperature readings
+
+        full_prompt = f"{prompt}\n\nRecent Temperature Data:\n{temperature_history}"
+        print(f"[DEBUG] Sending to AI API:\n{full_prompt}")
+
+        payload = {"prompt": full_prompt}
+        response = requests.post(API_URL, json=payload, headers=HEADERS)
+
+        if response.status_code == 200:
+            data = response.json()
+            ai_response = data["result"]["response"]
+            return {"recommendation": ai_response}
+        else:
+            return {"error": f"API request failed with status {response.status_code}"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calling AI API: {str(e)}")
 
 # ------------------- User Authentication (MySQL) -------------------
 @app.get("/login")
@@ -241,8 +278,6 @@ async def login(
 
     # ✅ Redirect to dashboard if user has at least one device
     return RedirectResponse(url="/dashboard", status_code=302)
-
-
 
 
 
@@ -363,48 +398,129 @@ def delete_device(device_id: str, sessionId: Optional[str] = Cookie(None)):
     return Response(status_code=200)
 
 
-# ------------------- Sensor Data Endpoints (SQLite) -------------------
-@app.get("/api/{sensor_type}/count")
-def get_sensor_count(sensor_type: str):
-    """Get the count of rows for a given sensor type."""
-    if sensor_type not in SENSOR_TYPES:
-        raise HTTPException(status_code=404, detail="Invalid sensor type")
 
-    conn = get_db()
+# ------------------- Clothes Management -------------------
+
+@app.delete("/delete_clothes/{item_id}")
+def delete_clothes(item_id: str, sessionId: Optional[str] = Cookie(None)):
+    """Deletes a clothing item if it belongs to the logged-in user."""
+    print(f"DEBUG: sessionId from Cookie (Delete Clothes): {sessionId}")
+
+    if not sessionId:
+        print("DEBUG: No sessionId found, returning 401 Unauthorized")
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    session = get_session(sessionId)
+    if not session:
+        print("DEBUG: Invalid session, returning 401 Unauthorized")
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    user_id = session["user_id"]
+    print(f"DEBUG: Deleting clothes {item_id} for user_id {user_id}")
+
+    conn = get_mysql_connection()
     cursor = conn.cursor()
-    cursor.execute(f"SELECT COUNT(*) FROM sensor_data WHERE sensor_type = ?", (sensor_type,))
-    count = cursor.fetchone()[0]
-    return {"count": count}
 
-@app.get("/api/{sensor_type}")
-def get_sensor_data(sensor_type: str):
-    """Fetch all sensor data"""
-    if sensor_type not in SENSOR_TYPES:
-        raise HTTPException(status_code=404, detail="Invalid sensor type")
+    # Ensure the clothing item belongs to the logged-in user
+    cursor.execute("SELECT * FROM wardrobe WHERE item_id = %s AND user_id = %s", (item_id, user_id))
+    clothes = cursor.fetchone()
 
-    conn = get_db()
+    if not clothes:
+        print("DEBUG: Clothes not found or do not belong to user.")
+        raise HTTPException(status_code=403, detail="Unauthorized to delete this clothing item")
+
+    try:
+        cursor.execute("DELETE FROM wardrobe WHERE item_id = %s AND user_id = %s", (item_id, user_id))
+        conn.commit()
+        print(f"DEBUG: Clothes {item_id} deleted successfully")
+    except Exception as e:
+        print(f"DEBUG: Error deleting clothes: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete clothes")
+    finally:
+        cursor.close()
+        conn.close()
+
+    return Response(status_code=200)
+
+
+
+@app.get("/wardrobe")
+def wardrobe_page(request: Request, sessionId: Optional[str] = Cookie(None)):
+    """Displays the wardrobe page with user-specific clothes."""
+    print(f"DEBUG: sessionId from Cookie (Wardrobe): {sessionId}")
+
+    if not sessionId:
+        return RedirectResponse(url="/login", status_code=303)
+
+    session = get_session(sessionId)
+    if not session:
+        return RedirectResponse(url="/login", status_code=303)
+
+    user_id = session["user_id"]
+
+    conn = get_mysql_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT id, item_name, item_id, color, created_at FROM wardrobe WHERE user_id = %s", (user_id,))
+    wardrobe = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    print(f"DEBUG: Fetched wardrobe items: {wardrobe}")
+
+    return templates.TemplateResponse("wardrobe.html", {"request": request, "wardrobe": wardrobe})
+
+
+@app.get("/add_clothes")
+def add_clothes_page(request: Request, sessionId: Optional[str] = Cookie(None)):
+    """Render the clothes registration page if logged in."""
+    print(f"DEBUG: sessionId from Cookie (Add Clothes Page): {sessionId}")
+
+    if not sessionId:
+        return RedirectResponse(url="/login", status_code=303)
+
+    # ✅ Retrieve user_id from session
+    session = get_session(sessionId)
+    if not session:
+        return RedirectResponse(url="/login", status_code=303)
+
+    return templates.TemplateResponse("add_clothes.html", {"request": request})
+
+
+@app.post("/add_clothes")
+def add_clothes(
+    request: Request,
+    response: Response,
+    item_name: str = Form(...),
+    item_id: str = Form(...),  # ✅ Ensure item_id is captured
+    color: str = Form(...),
+    sessionId: Optional[str] = Cookie(None)
+):
+    """Registers a new clothing item for the logged-in user."""
+    print(f"DEBUG: sessionId from Cookie (Register Clothes POST): {sessionId}")
+
+    if not sessionId:
+        print("DEBUG: No sessionId found, returning 401 Unauthorized")
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    session = get_session(sessionId)
+    if not session:
+        print("DEBUG: Invalid session, returning 401 Unauthorized")
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    user_id = session["user_id"]
+    print(f"DEBUG: Registering clothes for user_id: {user_id}")
+
+    conn = get_mysql_connection()
     cursor = conn.cursor()
-    cursor.execute(f"SELECT * FROM sensor_data WHERE sensor_type = ?", (sensor_type,))
-    data = cursor.fetchall()
-    return [dict(row) for row in data]
 
-@app.post("/api/{sensor_type}")
-def insert_sensor_data(sensor_type: str, data: SensorData):
-    """Insert new sensor data."""
-    if sensor_type not in SENSOR_TYPES:
-        raise HTTPException(status_code=404, detail="Invalid sensor type")
-
-    timestamp = data.timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO sensor_data (sensor_type, value, unit, timestamp) VALUES (?, ?, ?, ?)",
-        (sensor_type, data.value, data.unit, timestamp)
-    )
-    conn.commit()
-    return {"message": "Data inserted successfully"}
-
-# ------------------- Run FastAPI Server -------------------
-if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=6543, reload=True)
+    try:
+        cursor.execute(
+            "INSERT INTO wardrobe (user_id, item_name, item_id, color) VALUES (%s, %s, %s, %s)",
+            (user_id, item_name, item_id, color)
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"DEBUG: Clothes registration error: {e}")
+        rais

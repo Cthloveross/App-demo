@@ -2,18 +2,67 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wardrobe</title>
+    <title>My Wardrobe</title>
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
-    <header><h1>Wardrobe</h1></header>
+    <header><h1>My Wardrobe</h1></header>
     <main>
-        <table id="wardrobe-items"></table>
-        <form id="add-clothing">
-            <input type="text" id="item-name" placeholder="Item Name" required>
-            <button type="submit">Add</button>
-        </form>
+        <h2>Clothing Items</h2>
+
+        {% if wardrobe %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item Name</th>
+                        <th>Item ID</th>
+                        <th>Color</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in wardrobe %}
+                    <tr>
+                        <td>{{ item.item_name }}</td>
+                        <td>{{ item.item_id }}</td>
+                        <td>{{ item.color }}</td>
+                        <td>
+                            <button onclick="deleteClothes('{{ item.item_id }}')">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No clothing items registered yet.</p>
+        {% endif %}
+
+        <a href="/add_clothes"><button>Add New Clothing Item</button></a>
+        <a href="/dashboard"><button>Back to Dashboard</button></a>
     </main>
-    <script src="/static/js/script.js"></script>
+
+    <script>
+        function deleteClothes(itemId) {
+            if (!confirm("Are you sure you want to delete this clothing item?")) return;
+            
+            fetch(`/delete_clothes/${itemId}`, { 
+                method: "DELETE", 
+                credentials: "same-origin" 
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert("Clothing item deleted successfully!");
+                    location.reload();
+                } else {
+                    alert("Failed to delete clothing item.");
+                }
+            })
+            .catch(error => {
+                console.error("Error deleting clothing item:", error);
+                alert("Error deleting clothing item.");
+            });
+        }
+    </script>
+
 </body>
 </html>

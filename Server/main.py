@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-from app.database import seed_database  # Import only the function
+# from app.database import seed_database  # Import only the function
 import uvicorn
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
@@ -27,7 +27,7 @@ load_dotenv()
 
 BASE_TOPIC = os.getenv("BASE_TOPIC", "Eason/ece140/sensors")
 WEB_SERVER_URL = os.getenv("WEB_SERVER_URL", "http://localhost:6543/api/temperature")
-MQTT_BROKER = os.getenv("MQTT_BROKER", "broker.hivemq.com")
+MQTT_BROKER = os.getenv("MQTT_BROKER", "broker.hivemq.com ")
 
 # Track the last time a request was sent
 last_sent_time = 0
@@ -48,11 +48,9 @@ def on_message(client, userdata, msg):
     global last_sent_time
     try:
         payload = msg.payload.decode("utf-8")
-        print(f"[DEBUG] Raw MQTT message received: {payload}")
+        print(f"\n[DEBUG] Raw MQTT message received: {payload}")
 
         data = json.loads(payload)
-
-        # Extract temperature
         temperature = data.get("temperature")
 
         if temperature is None:
@@ -66,17 +64,19 @@ def on_message(client, userdata, msg):
 
         last_sent_time = current_time
 
-        # Format timestamp
         formatted_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
         post_data = {
-            "value": temperature,  # ✅ Send the exact received value
+            "value": temperature,
             "unit": "C",
             "timestamp": formatted_timestamp
         }
-        print(f"[DEBUG] Sending data to web server: {post_data}")
+
+        print(f"[DEBUG] Sending data to FastAPI: {post_data}")
 
         response = requests.post(WEB_SERVER_URL, json=post_data, timeout=5)
+
+        print(f"[DEBUG] FastAPI Response Code: {response.status_code}")
+        print(f"[DEBUG] FastAPI Response Body: {response.text}")
 
         if response.status_code == 200:
             print(f"[MQTT] Data sent successfully! Stored value: {temperature}")
@@ -85,7 +85,6 @@ def on_message(client, userdata, msg):
 
     except Exception as e:
         print(f"[ERROR] Error processing MQTT message: {e}")
-
 
 
 

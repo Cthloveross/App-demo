@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Signup</title>
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
@@ -9,13 +10,38 @@
     <header><h1>Sign Up</h1></header>
     <main>
         <form id="signup-form">
-            <input type="text" name="username" placeholder="Username" required>
-            <input type="email" name="email" placeholder="Email" required>
-            <input type="password" name="password" placeholder="Password" required>
-            <input type="text" name="location" placeholder="Location" required>
+            <input type="text" id="username" name="username" placeholder="Username" required>
+            <input type="email" id="email" name="email" placeholder="Email" required>
+            <input type="password" id="password" name="password" placeholder="Password" required>
+            <input type="text" id="location" name="location" placeholder="Location">
             <button type="submit">Sign Up</button>
         </form>
         <p>Already have an account? <a href="/login">Login</a></p>
     </main>
+
     <script>
-        document.getElementById("signup-f
+        document.getElementById("signup-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target); // Use FormData to send form-encoded data
+
+            try {
+                const response = await fetch("/auth/signup", {
+                    method: "POST",
+                    body: formData // Send as form data (not JSON)
+                });
+
+                if (response.redirected) {
+                    window.location.href = response.url; // Redirects to dashboard on success
+                } else {
+                    const errorMessage = await response.text();
+                    alert(`Signup failed: ${errorMessage}`);
+                }
+            } catch (error) {
+                console.error("Error during signup:", error);
+                alert("An error occurred. Please try again.");
+            }
+        });
+    </script>
+</body>
+</html>

@@ -64,13 +64,21 @@ def get_mysql_connection():
     """Returns a MySQL database connection."""
     return mysql.connector.connect(**MYSQL_CONFIG)
 
-def get_db() -> Generator:
-    """Dependency injection for FastAPI."""
-    connection = get_mysql_connection()
-    try:
-        yield connection
-    finally:
-        connection.close()
+# def get_db() -> Generator:
+#     """Dependency injection for FastAPI."""
+#     connection = get_mysql_connection()
+#     try:
+#         yield connection
+#     finally:
+#         connection.close()
+
+
+def get_db():
+    """Returns a new database connection each time"""
+    conn = sqlite3.connect(SQLITE_DB_PATH)
+    conn.row_factory = sqlite3.Row  # ✅ Ensures results can be converted to dictionaries
+    return conn  # ✅ Returning the connection instead of yielding
+
 
 def table_exists(table_name: str) -> bool:
     """Checks if a table exists in MySQL."""
@@ -88,7 +96,7 @@ def ensure_mysql_tables():
     cursor = connection.cursor()
 
         # 🚨 Drop existing tables before recreating them (Be careful with this in production!)
-    cursor.execute("DROP TABLE IF EXISTS users, sessions, devices, wardrobe")
+    # cursor.execute("DROP TABLE IF EXISTS users, sessions, devices, wardrobe")
     connection.commit()
 
     table_schemas = {
@@ -125,11 +133,8 @@ def ensure_mysql_tables():
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
                 item_name VARCHAR(255) NOT NULL,
-                item_type VARCHAR(255),
+                item_id VARCHAR(255),
                 color VARCHAR(50),
-                material VARCHAR(100),
-                weather_suitability JSON,
-                item_image TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
@@ -153,7 +158,6 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifies if a password matches the stored hash."""
     return checkpw(plain_password.encode(), hashed_password.encode())
-
 
 
 def create_user(username: str, email: str, password: str, location: Optional[str] = None) -> int:
@@ -269,9 +273,3 @@ def register_device(user_id: int, device_name: str, device_id: str) -> bool:
         connection.close()
 
 
-# ------------------- Database Setup Execution -------------------
-# if __name__ == "__main__":
-#     logger.info("🔧 Setting up databases...")
-#     ensure_sqlite_tables()  # Ensures sensor data table exists
-#     ensure_mysql_tables()  # Ensures user, session, device, wardrobe tables exist
-#     logger.info("✅ Database setup complete.")

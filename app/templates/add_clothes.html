@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Clothing Item</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <header>
+        <h1>Add New Clothing Item</h1>
+    </header>
+
+    <main>
+        <form action="/add_clothes" method="POST">
+            <label for="item_name">Item Name:</label>
+            <input type="text" id="item_name" name="item_name" required>
+
+            <label for="item_id">Item ID:</label>
+            <input type="text" id="item_id" name="item_id" required>
+
+            <label for="color">Color:</label>
+            <input type="text" id="color" name="color" required>
+
+            <button type="submit">Add Clothing Item</button>
+        </form>
+
+        <a href="/wardrobe"><button>Back to Wardrobe</button></a>
+    </main>
+
+    <script>
+        document.querySelector("form").onsubmit = function(event) {
+            console.log("DEBUG: Submitting new clothing item...");
+        };
+    </script>
+</body>
+</html>

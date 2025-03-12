@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
 </head>
 <body>
     <header>
@@ -13,12 +15,23 @@
             <a href="/profile">Profile</a>
         </nav>
     </header>
+    
     <main>
-        <h2>Sensor Data</h2>
-        <div id="sensor-data"></div>
-        <button onclick="getRecommendation()">What should I wear today?</button>
-        <p id="recommendation"></p>
+        <!-- Temperature Chart Section -->
+        <section>
+            <h2>Temperature Data</h2>
+            <canvas id="temperatureChart" width="1000" height="600"></canvas>
+        </section>
+
+        <!-- AI Recommendation Section -->
+        <section>
+            <h2>AI Recommendation</h2>
+            <label for="userPrompt">Ask AI for advice:</label>
+            <input type="text" id="userPrompt" placeholder="What should I wear today?" required>
+            <button onclick="getRecommendation()">Get Advice</button>
+            <h3>AI Response:</h3>
+            <p id="recommendation"></p>
+        </section>
     </main>
-    <script src="/static/js/script.js"></script>
-</body>
-</html>
+
+    <script src="/static/js/dashboard.js

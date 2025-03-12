@@ -1,55 +1,114 @@
-async function fetchSensorData(sensorType) {
-    try {
-        const response = await fetch(`/api/${sensorType}`);
-        const data = await response.json();
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("Dashboard script loaded!");
 
-        return data.map(entry => ({
-            timestamp: new Date(entry.timestamp),
-            value: parseFloat(entry.value)
-        }));
-    } catch (error) {
-        console.error(`Error fetching ${sensorType} data:`, error);
-        return [];
-    }
-}
-async function createChart(sensorType, canvasId, label, unit) {
-    console.log(`Creating chart for ${sensorType}...`);
-    const sensorData = await fetchSensorData(sensorType);
-    
-    if (sensorData.length === 0) {
-        console.warn(`No data found for ${sensorType}`);
-        return;
-    }
+    // Handle Login
+    const loginForm = document.getElementById("login-form");
+    if (loginForm) {
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
 
-    const ctx = document.getElementById(canvasId).getContext('2d');
+            try {
+                const response = await fetch("/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: email, password: password }),
+                });
 
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: sensorData.map(entry => entry.timestamp.toLocaleString()),
-            datasets: [{
-                label: `${label} (${unit})`,
-                data: sensorData.map(entry => entry.value),
-                borderColor: 'rgba(75, 192, 192, 1)',
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                borderWidth: 2,
-                pointRadius: 4,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: false,  // ❌ Prevent Chart.js from auto-resizing
-            maintainAspectRatio: false,  // ❌ Allow manual size control
-            scales: {
-                x: { title: { display: true, text: 'Timestamp' }},
-                y: { title: { display: true, text: `Value (${unit})` }}
+                if (response.ok) {
+                    window.location.href = "/dashboard";
+                } else {
+                    alert("Invalid credentials");
+                }
+            } catch (error) {
+                console.error("Login failed:", error);
+                alert("Login error. Please try again.");
             }
-        }
-    });
-}
+        });
+    }
 
-document.addEventListener('DOMContentLoaded', () => {
-    createChart('temperature', 'temperatureChart', 'Temperature', '°C');
-    createChart('humidity', 'humidityChart', 'Humidity', '%');
-    createChart('light', 'lightChart', 'Light Intensity', 'lux');
-});
+    // Handle Signup
+    const signupForm = document.getElementById("signup-form");
+    if (signupForm) {
+        signupForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const data = {
+                username: document.getElementById("email").value,
+                password: document.getElementById("password").value,
+                location: document.getElementById("location").value,
+            };
+
+            try {
+                const response = await fetch("/auth/signup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data),
+                });
+
+                if (response.ok) {
+                    window.location.href = "/login";
+                } else {
+                    alert("Signup failed");
+                }
+            } catch (error) {
+                console.error("Signup error:", error);
+                alert("Signup error. Please try again.");
+            }
+        });
+    }
+
+    // Fetch AI Recommendation
+    async function getRecommendation() {
+        const userPrompt = document.getElementById("userPrompt")?.value;
+
+        if (!userPrompt?.trim()) {
+            alert("Please enter a prompt before requesting advice.");
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/recommendation?prompt=${encodeURIComponent(userPrompt)}`);
+            const data = await response.json();
+            
+            document.getElementById("recommendation").innerText = data.recommendation || "No response from AI.";
+        } catch (error) {
+            console.error("Error fetching AI recommendation:", error);
+            document.getElementById("recommendation").innerText = "Failed to get advice. Please try again.";
+        }
+    }
+
+    // Attach event listener to recommendation button if it exists
+    const recommendationButton = document.querySelector("button[onclick='getRecommendation()']");
+    if (recommendationButton) {
+        recommendationButton.addEventListener("click", getRecommendation);
+    }
+
+    // Fetch and display Temperature Data
+    async function fetchSensorData(sensorType) {
+        try {
+            const response = await fetch(`/api/${sensorType}`);
+            const data = await response.json();
+
+            return data.map(entry => ({
+                timestamp: new Date(entry.timestamp),
+                value: parseFloat(entry.value)
+            }));
+        } catch (error) {
+            console.error(`Error fetching ${sensorType} data:`, error);
+            return [];
+        }
+    }
+
+    async function createTemperatureChart() {
+        console.log("Creating chart for temperature...");
+        const sensorData = await fetchSensorData('temperature');
+
+        if (sensorData.length === 0) {
+            console.warn("No temperature data found");
+            return;
+        }
+
+        const ctx = document.getElementById('temperatureChart')?.getContext('2d');
+        if (!ctx) {
+            console.warn("Canvas element for temperature char
