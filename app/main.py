@@ -18,11 +18,13 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.database import (
-    get_db, get_mysql_connection, get_user_by_username, create_user, create_session,
-    get_session, delete_session, register_device, verify_password, ensure_mysql_tables,
-    ensure_sqlite_tables, get_user_by_email
-)
+from app import database
+
+# from app.database import (
+#     database.get_db, database.get_mysql_connection, database.get_user_by_username, database.create_user, database.create_session,
+#     database.get_session, database.delete_session, register_device, verify_password, database.ensure_mysql_tables,
+#     database.ensure_sqlite_tables, database.get_user_by_email
+# )
 
 # from fastapi.middleware.cors import CORSMiddleware
 
@@ -43,8 +45,8 @@ logger = logging.getLogger(__name__)
 
 # 🌱 Initialize database tables
 logger.info("🔧 Setting up MySQL and SQLite databases...")
-ensure_mysql_tables()
-ensure_sqlite_tables()
+database.ensure_mysql_tables()
+database.ensure_sqlite_tables()
 logger.info("✅ Database setup complete.")
 
 # ------------------- FastAPI Setup -------------------
@@ -94,7 +96,7 @@ def dashboard(request: Request, sessionId: Optional[str] = Cookie(None)):
     if not sessionId:
         return RedirectResponse(url="/login", status_code=303)
 
-    session = get_session(sessionId)
+    session = database.get_session(sessionId)
 
     # print(f"DEBUG: Session from DB (Dashboard): {session}")  # ✅ Debugging
     if not session:
@@ -103,7 +105,7 @@ def dashboard(request: Request, sessionId: Optional[str] = Cookie(None)):
     user_id = session["user_id"]
 
     # ✅ Check if the user has a registered device
-    conn = get_mysql_connection()
+    conn = database.get_mysql_connection()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT COUNT(*) AS device_count FROM devices WHERE user_id = %s", (user_id,))
     device_data = cursor.fetchone()
@@ -128,7 +130,7 @@ def profile_page(request: Request, sessionId: Optional[str] = Cookie(None)):
         return RedirectResponse(url="/login", status_code=303)
 
     # Check session in DB
-    session = get_session(sessionId)
+    session = database.get_session(sessionId)
     print(f"DEBUG: Session from DB (Profile): {session}")  
 
     if not session:
@@ -137,7 +139,7 @@ def profile_page(request: Request, sessionId: Optional[str] = Cookie(None)):
 
     user_id = session["user_id"]
 
-    conn = get_mysql_connection()
+    conn = database.get_mysql_connection()
     cursor = conn.cursor(dictionary=True)
 
     cursor.execute("SELECT * FROM devices WHERE user_id = %s", (user_id,))
@@ -226,17 +228,17 @@ async def signup(
 ):
     """Handles user registration, starts a session, and redirects to dashboard."""
     
-    existing_user = get_user_by_username(username)
+    existing_user = database.get_user_by_username(username)
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already exists")
 
     # ✅ Ensure user_id is an integer, not a boolean
-    user_id = create_user(username, email, password, location)
+    user_id = database.create_user(username, email, password, location)
     if not user_id:
         raise HTTPException(status_code=500, detail="User creation failed")
 
     # ✅ Create a session with the actual user ID
-    session_id = create_session(user_id)
+    session_id = database.create_session(user_id)
 
     # ✅ Set session cookie
     response = RedirectResponse(url="/dashboard", status_code=302)  # Redirect to dashboard
@@ -253,19 +255,19 @@ async def login(
 ):
     """Validates user login, starts a session, and redirects based on device registration."""
     
-    user = get_user_by_email(email)
+    user = database.get_user_by_email(email)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    if not verify_password(password, user["password"]):
+    if not database.verify_password(password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     # ✅ Create a session
-    session_id = create_session(user["id"])
+    session_id = database.create_session(user["id"])
     response.set_cookie(key="sessionId", value=session_id, httponly=True)
 
     # ✅ Check if the user has registered a device
-    conn = get_mysql_connection()
+    conn = database.get_mysql_connection()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT COUNT(*) AS device_count FROM devices WHERE user_id = %s", (user["id"],))
     device_data = cursor.fetchone()
@@ -291,7 +293,7 @@ async def login(
 async def logout(response: Response, sessionId: Optional[str] = Cookie(None)):
     """Logs out the user by deleting the session."""
     if sessionId:
-        delete_session(sessionId)
+        database.delete_session(sessionId)
         response.delete_cookie("sessionId")
     return RedirectResponse(url="/login", status_code=302)
 
@@ -306,7 +308,7 @@ def register_device_page(request: Request, sessionId: Optional[str] = Cookie(Non
         return RedirectResponse(url="/login", status_code=303)
 
     # ✅ Retrieve user_id from session
-    session = get_session(sessionId)
+    session = database.get_session(sessionId)
     if not session:
         return RedirectResponse(url="/login", status_code=303)
 
@@ -334,7 +336,7 @@ def register_device(
         raise HTTPException(status_code=401, detail="Not logged in")
 
     # ✅ Retrieve user_id from session
-    session = get_session(sessionId)
+    session = database.get_session(sessionId)
     if not session:
         print("DEBUG: Invalid session, returning 401 Unauthorized")
         raise HTTPException(status_code=401, detail="Not logged in")
@@ -342,7 +344,7 @@ def register_device(
     user_id = session["user_id"]
     print(f"DEBUG: Registering device for user_id: {user_id}")
 
-    conn = get_mysql_connection()
+    conn = database.get_mysql_connection()
     cursor = conn.cursor()
 
     try:
@@ -370,7 +372,7 @@ def delete_device(device_id: str, sessionId: Optional[str] = Cookie(None)):
         print("DEBUG: No sessionId found, returning 401 Unauthorized")
         raise HTTPException(status_code=401, detail="Not logged in")
 
-    session = get_session(sessionId)
+    session = database.get_session(sessionId)
     if not session:
         print("DEBUG: Invalid session, returning 401 Unauthorized")
         raise HTTPException(status_code=401, detail="Not logged in")
@@ -378,7 +380,7 @@ def delete_device(device_id: str, sessionId: Optional[str] = Cookie(None)):
     user_id = session["user_id"]
     print(f"DEBUG: Deleting device {device_id} for user_id {user_id}")
 
-    conn = get_mysql_connection()
+    conn = database.get_mysql_connection()
     cursor = conn.cursor()
 
     # Ensure the device belongs to the logged-in user
@@ -415,7 +417,7 @@ def delete_clothes(item_id: str, sessionId: Optional[str] = Cookie(None)):
         print("DEBUG: No sessionId found, returning 401 Unauthorized")
         raise HTTPException(status_code=401, detail="Not logged in")
 
-    session = get_session(sessionId)
+    session = database.get_session(sessionId)
     if not session:
         print("DEBUG: Invalid session, returning 401 Unauthorized")
         raise HTTPException(status_code=401, detail="Not logged in")
@@ -423,7 +425,7 @@ def delete_clothes(item_id: str, sessionId: Optional[str] = Cookie(None)):
     user_id = session["user_id"]
     print(f"DEBUG: Deleting clothes {item_id} for user_id {user_id}")
 
-    conn = get_mysql_connection()
+    conn = database.get_mysql_connection()
     cursor = conn.cursor()
 
     # Ensure the clothing item belongs to the logged-in user
@@ -457,13 +459,13 @@ def wardrobe_page(request: Request, sessionId: Optional[str] = Cookie(None)):
     if not sessionId:
         return RedirectResponse(url="/login", status_code=303)
 
-    session = get_session(sessionId)
+    session = database.get_session(sessionId)
     if not session:
         return RedirectResponse(url="/login", status_code=303)
 
     user_id = session["user_id"]
 
-    conn = get_mysql_connection()
+    conn = database.get_mysql_connection()
     cursor = conn.cursor(dictionary=True)
 
     cursor.execute("SELECT id, item_name, item_id, color, created_at FROM wardrobe WHERE user_id = %s", (user_id,))
@@ -486,7 +488,7 @@ def add_clothes_page(request: Request, sessionId: Optional[str] = Cookie(None)):
         return RedirectResponse(url="/login", status_code=303)
 
     # ✅ Retrieve user_id from session
-    session = get_session(sessionId)
+    session = database.get_session(sessionId)
     if not session:
         return RedirectResponse(url="/login", status_code=303)
 
@@ -509,7 +511,7 @@ def add_clothes(
         print("DEBUG: No sessionId found, returning 401 Unauthorized")
         raise HTTPException(status_code=401, detail="Not logged in")
 
-    session = get_session(sessionId)
+    session = database.get_session(sessionId)
     if not session:
         print("DEBUG: Invalid session, returning 401 Unauthorized")
         raise HTTPException(status_code=401, detail="Not logged in")
@@ -517,7 +519,7 @@ def add_clothes(
     user_id = session["user_id"]
     print(f"DEBUG: Registering clothes for user_id: {user_id}")
 
-    conn = get_mysql_connection()
+    conn = database.get_mysql_connection()
     cursor = conn.cursor()
 
     try:
@@ -544,7 +546,7 @@ def get_sensor_count(sensor_type: str):
     if sensor_type not in SENSOR_TYPES:
         raise HTTPException(status_code=404, detail="Invalid sensor type")
 
-    conn = get_db()
+    conn = database.get_db()
     cursor = conn.cursor()
     cursor.execute(f"SELECT COUNT(*) FROM sensor_data WHERE sensor_type = ?", (sensor_type,))
     count = cursor.fetchone()[0]
@@ -559,7 +561,7 @@ def get_sensor_data(sensor_type: str):
     if sensor_type not in SENSOR_TYPES:
         raise HTTPException(status_code=404, detail="Invalid sensor type")
 
-    conn = get_db()  # ✅ Get fresh connection
+    conn = database.get_db()  # ✅ Get fresh connection
     cursor = conn.cursor()
     
     try:
@@ -583,7 +585,7 @@ def insert_sensor_data(sensor_type: str, data: SensorData):
 
     timestamp = data.timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    conn = get_db()
+    conn = database.get_db()
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO sensor_data (sensor_type, value, unit, timestamp) VALUES (?, ?, ?, ?)",

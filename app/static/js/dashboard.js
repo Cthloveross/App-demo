@@ -111,4 +111,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const ctx = document.getElementById('temperatureChart')?.getContext('2d');
         if (!ctx) {
-            console.warn("Canvas element for temperature char
+            console.warn("Canvas element for temperature chart not found");
+            return;
+        }
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: sensorData.map(entry => entry.timestamp.toLocaleString()),
+                datasets: [{
+                    label: 'Temperature (°C)',
+                    data: sensorData.map(entry => entry.value),
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { title: { display: true, text: 'Timestamp' }},
+                    y: { title: { display: true, text: 'Temperature (°C)' }}
+                }
+            }
+        });
+    }
+
+    // Only create the chart if the canvas element exists
+    if (document.getElementById('temperatureChart')) {
+        createTemperatureChart();
+    }
+});
